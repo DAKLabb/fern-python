@@ -149,16 +149,7 @@ class EndpointFunctionGenerator:
                 AST.NamedFunctionParameter(
                     name=self._get_query_parameter_name(query_parameter),
                     docs=query_parameter.docs,
-                    type_hint=AST.TypeHint.union(
-                        query_parameter_type_hint,
-                        AST.TypeHint.list(
-                            self._context.pydantic_generator_context.get_type_hint_for_type_reference(
-                                unwrap_optional_type(query_parameter.value_type)
-                            )
-                        ),
-                    )
-                    if query_parameter.allow_multiple
-                    else query_parameter_type_hint,
+                    type_hint=self._get_typehint_for_query_param(query_parameter,query_parameter_type_hint),
                 ),
             )
 
@@ -178,6 +169,28 @@ class EndpointFunctionGenerator:
                 )
 
         return parameters
+
+    def _get_typehint_for_query_param(query_param, query_parameter_type_hint):
+        if query_param.is_optional and query_param.allow_multiple:
+            return AST.TypeHint.optional(AST.TypeHint.union(
+                query_parameter_type_hint,
+                AST.TypeHint.list(
+                    self._context.pydantic_generator_context.get_type_hint_for_type_reference(
+                        unwrap_optional_type(query_parameter.value_type)
+                    )
+                ),
+            ))
+        elif query_parameter.allow_multiple:
+            return AST.TypeHint.union(
+                query_parameter_type_hint,
+                AST.TypeHint.list(
+                    self._context.pydantic_generator_context.get_type_hint_for_type_reference(
+                        unwrap_optional_type(query_parameter.value_type)
+                    )
+                ),
+            )
+        else:
+            return query_parameter_type_hint,
 
     def _create_endpoint_body_writer(
         self,
