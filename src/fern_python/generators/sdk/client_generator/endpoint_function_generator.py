@@ -170,27 +170,6 @@ class EndpointFunctionGenerator:
 
         return parameters
 
-    def _get_typehint_for_query_param(self, query_param, query_parameter_type_hint):
-        if query_param.is_optional and query_param.allow_multiple:
-            return AST.TypeHint.optional(AST.TypeHint.union(
-                query_parameter_type_hint,
-                AST.TypeHint.list(
-                    self._context.pydantic_generator_context.get_type_hint_for_type_reference(
-                        unwrap_optional_type(query_parameter.value_type)
-                    )
-                ),
-            ))
-        elif query_parameter.allow_multiple:
-            return AST.TypeHint.union(
-                query_parameter_type_hint,
-                AST.TypeHint.list(
-                    self._context.pydantic_generator_context.get_type_hint_for_type_reference(
-                        unwrap_optional_type(query_parameter.value_type)
-                    )
-                ),
-            )
-        return query_parameter_type_hint
-
     def _create_endpoint_body_writer(
         self,
         *,
@@ -720,6 +699,30 @@ class EndpointFunctionGenerator:
 
     def _get_query_parameter_name(self, query_parameter: ir_types.QueryParameter) -> str:
         return query_parameter.name.name.snake_case.safe_name
+
+    def _get_typehint_for_query_param(self, query_parameter: ir_types.QueryParameter, query_parameter_type_hint: AST.TypeHint) -> AST.TypeHint:
+        value_type = query_parameter.value_type.get_as_union()
+        is_optional = value_type.type == "container" and value_type.container.get_as_union().type == "optional"
+        if is_optional and query_parameter.allow_multiple:
+            return AST.TypeHint.optional(AST.TypeHint.union(
+                query_parameter_type_hint,
+                AST.TypeHint.list(
+                    self._context.pydantic_generator_context.get_type_hint_for_type_reference(
+                        unwrap_optional_type(query_parameter.value_type)
+                    )
+                ),
+            ))
+        elif query_parameter.allow_multiple:
+            return AST.TypeHint.union(
+                query_parameter_type_hint,
+                AST.TypeHint.list(
+                    self._context.pydantic_generator_context.get_type_hint_for_type_reference(
+                        unwrap_optional_type(query_parameter.value_type)
+                    )
+                ),
+            )
+        return query_parameter_type_hint
+
 
     def _get_literal_header_value(self, header: ir_types.HttpHeader) -> Optional[str]:
         type = header.value_type.get_as_union()
